@@ -1,0 +1,97 @@
+name: Storefront Pact Consumer
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  NODE_VERSION: '18'
+  ORG_NAME: abcdigital-org
+  CONTRACTS_REPO: contracts-repo
+  PROVIDER_REPOS: catalog-provider,inventory-provider
+
+jobs:
+  pact-consumer:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout consumer
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run pact consumer tests
+        run: npm run test:consumer
+
+      - name: Clone contracts repository
+        run: |
+          git clone https://github.com/${ORG_NAME}/${CONTRACTS_REPO}.git contracts
+          mkdir -p contracts/pacts/catalog-service contracts/pacts/inventory-service
+
+      - name: Copy generated pact files into contracts repo
+        run: |
+          shopt -s nullglob
+          for file in pacts/*-CatalogService.json; do
+            cp "$file" "contracts/pacts/catalog-service/$(basename "$file")"
+          done
+          for file in pacts/*-InventoryService.json; do
+            cp "$file" "contracts/pacts/inventory-service/$(basename "$file")"
+          done
+
+      - name: Detect contract changes
+        id: detect_changes
+        working-directory: contracts
+        run: |
+          if git status --short | grep .; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create or update contracts PR
+        id: create_pr
+        if: steps.detect_changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          path: contracts
+          commit-message: "chore: update storefront contracts"
+          branch: chore/storefront/${{ github.head_ref }}
+          base: main
+          title: "Update storefront contracts for ${{ github.head_ref }}"
+          body: |
+            Automated contract update from storefront-consumer workflow.
+          token: ${{ secrets.CONTRACT_PAT }}
+
+      - name: Notify providers for verification
+        if: steps.create_pr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.CONTRACT_PAT }}
+          PACT_BRANCH: ${{ steps.create_pr.outputs.pull-request-branch }}
+          CONSUMER_SHA: ${{ github.event.pull_request.head.sha }}
+          CONSUMER_REPO: ${{ github.repository }}
+        run: |
+          IFS=',' read -ra PROVIDERS <<< "${PROVIDER_REPOS}"
+          for repo in "${PROVIDERS[@]}"; do
+            echo "Dispatching verification to ${repo}"
+            gh api repos/${ORG_NAME}/${repo}/dispatches \
+              -f event_type=verify-pact \
+              -f client_payload="{\"pact_branch\":\"${PACT_BRANCH}\",\"consumer_repo\":\"${CONSUMER_REPO}\",\"consumer_sha\":\"${CONSUMER_SHA}\"}"
+          done
+
+      - name: Fail if contracts changed but PR not created
+        if: steps.detect_changes.outputs.changed == 'true' && steps.create_pr.outputs.pull-request-number == ''
+        run: |
+          echo "Contract files changed but PR was not created." >&2
+          exit 1
