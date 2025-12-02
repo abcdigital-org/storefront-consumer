@@ -10,7 +10,7 @@ permissions:
   pull-requests: write
 
 env:
-  NODE_VERSION: '18'
+  NODE_VERSION: '22'
   ORG_NAME: abcdigital-org
   CONTRACTS_REPO: contracts-repo
   PROVIDER_REPOS: catalog-provider,inventory-provider
@@ -27,10 +27,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package.json') }}-${{ env.NODE_VERSION }}
+          restore-keys: |
+            ${{ runner.os }}-node-${{ env.NODE_VERSION }}-
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Run pact consumer tests
         run: npm run test:consumer

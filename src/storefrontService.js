@@ -3,7 +3,7 @@
 class StorefrontService {
   constructor({ catalogClient, inventoryClient, catalogBaseUrl, inventoryBaseUrl }) {
     if (!catalogClient || !inventoryClient) {
-      throw new Error('StorefrontService requires both catalogClient and inventoryClient');
+      throw new Error('StorefrontService requires both catalogClient and inventoryClient!');
     }
     this.catalogClient = catalogClient;
     this.inventoryClient = inventoryClient;

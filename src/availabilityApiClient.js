@@ -9,7 +9,7 @@ const defaultHeaders = {
 
 const buildUrl = (baseUrl, path) => {
   if (!baseUrl) {
-    throw new Error('A baseUrl must be provided when invoking the availability API client');
+    throw new Error('A baseUrl must be provided when invoking the availability API client!');
   }
   const trimmedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
   return `${trimmedBase}${path}`;
