@@ -93,9 +93,18 @@ jobs:
           IFS=',' read -ra PROVIDERS <<< "${PROVIDER_REPOS}"
           for repo in "${PROVIDERS[@]}"; do
             echo "Dispatching verification to ${repo}"
-            gh api repos/${ORG_NAME}/${repo}/dispatches \
-              -f event_type=verify-pact \
-              -f client_payload="{\"pact_branch\":\"${PACT_BRANCH}\",\"consumer_repo\":\"${CONSUMER_REPO}\",\"consumer_sha\":\"${CONSUMER_SHA}\"}"
+            cat > payload.json <<EOF
+            {
+              "event_type": "verify-pact",
+              "client_payload": {
+                "pact_branch": "${PACT_BRANCH}",
+                "consumer_repo": "${CONSUMER_REPO}",
+                "consumer_sha": "${CONSUMER_SHA}"
+              }
+            }
+            EOF
+            gh api repos/${ORG_NAME}/${repo}/dispatches --input payload.json
+            rm -f payload.json
           done
 
       - name: Fail if contracts changed but PR not created
