@@ -66,7 +66,6 @@ jobs:
             path: contracts
             ref: main
 
-
       - name: Copy generated pact files into contracts repo
         run: |
           shopt -s nullglob
@@ -112,16 +111,18 @@ jobs:
           IFS=',' read -ra PROVIDERS <<< "${PROVIDER_REPOS}"
           for repo in "${PROVIDERS[@]}"; do
             echo "Dispatching verification to ${repo}"
-            cat > payload.json <<EOF
-            {
-              "event_type": "verify-pact",
-              "client_payload": {
-                "pact_branch": "${PACT_BRANCH}",
-                "consumer_repo": "${CONSUMER_REPO}",
-                "consumer_sha": "${CONSUMER_SHA}"
-              }
-            }
-            EOF
+            jq -n \
+              --arg pact_branch "${PACT_BRANCH}" \
+              --arg consumer_repo "${CONSUMER_REPO}" \
+              --arg consumer_sha "${CONSUMER_SHA}" \
+              '{
+                event_type: "verify-pact",
+                client_payload: {
+                  pact_branch: $pact_branch,
+                  consumer_repo: $consumer_repo,
+                  consumer_sha: $consumer_sha
+                }
+              }' > payload.json
             gh api repos/${ORG_NAME}/${repo}/dispatches --input payload.json
             rm -f payload.json
           done
