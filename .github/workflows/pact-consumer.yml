@@ -12,7 +12,7 @@ permissions:
 env:
   NODE_VERSION: '22'
   ORG_NAME: abcdigital-org
-  CONTRACTS_REPO: contracts-repo
+  CONTRACTS_REPO: contract-repo
   PROVIDER_REPOS: catalog-provider,inventory-provider
 
 jobs:
@@ -45,7 +45,7 @@ jobs:
 
       - name: Clone contracts repository
         run: |
-          git clone https://github.com/${ORG_NAME}/${CONTRACTS_REPO}.git contracts
+          git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${ORG_NAME}/${CONTRACTS_REPO}.git contracts
           mkdir -p contracts/pacts/catalog-service contracts/pacts/inventory-service
 
       - name: Copy generated pact files into contracts repo
