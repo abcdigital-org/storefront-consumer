@@ -1,7 +1,7 @@
 'use strict';
 
 const path = require('path');
-const { PactV3, MatchersV3 } = require('@pact-foundation/pact');
+const { PactV4, MatchersV3 } = require('@pact-foundation/pact');
 const StorefrontService = require('../src/storefrontService');
 const availabilityApiClient = require('../src/availabilityApiClient');
 
@@ -21,25 +21,20 @@ const availabilityMatcher = {
 };
 
 describe('Storefront -> Inventory pact', () => {
-  const provider = new PactV3(pactConfig);
+  const pact = new PactV4(pactConfig);
 
   it('retrieves availability details to enrich the storefront view', async () => {
-    await provider
+    await pact
+      .addInteraction()
       .given('inventory for product ID 2 exists with quantity 5')
       .uponReceiving('an availability lookup from the storefront service')
-      .withRequest({
-        method: 'GET',
-        path: '/inventory/2',
-        headers: {
-          Accept: 'application/json',
-        },
+      .withRequest('GET', '/inventory/2', (builder) => {
+        builder.headers({ 'Accept': 'application/json' });
       })
-      .willRespondWith({
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json; charset=utf-8',
-        },
-        body: availabilityMatcher,
+      .willRespondWith(200, (builder) => {
+        builder
+          .headers({ 'Content-Type': 'application/json; charset=utf-8' })
+          .jsonBody(availabilityMatcher);
       })
       .executeTest(async (mockServer) => {
         const storefront = new StorefrontService({
